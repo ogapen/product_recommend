@@ -95,3 +95,92 @@ def display_product(result):
 
     # 商品ページのリンク
     st.link_button("商品ページを開く", type="primary", use_container_width=True, url="https://google.com")
+
+    # 在庫がない場合の代替商品提案
+    if stock_status == "なし":
+        st.markdown("### 【在庫状況が「なし」の商品】")
+        
+        # 代替商品の提案
+        alternative_product = find_alternative_product(product)
+        if alternative_product:
+            st.markdown("😊 USB充電できる加湿器")
+            st.error("🔴 以下の商品をご提案いたします。")
+            
+            # 代替商品の情報表示
+            st.success(f"""
+            商品名：{alternative_product['name']}（商品ID: {alternative_product['id']}）\n
+            価格：{alternative_product['price']}
+            """)
+            
+            # 代替商品の在庫状況
+            alt_stock_status = alternative_product.get('stock_status', 'あり')
+            if alt_stock_status == "残りわずか":
+                st.error("🟡 申し訳ございませんが、本商品は在庫切れとなっております。入荷までもうしばらくお待ちください。")
+            elif alt_stock_status == "なし":
+                st.error("🔴 申し訳ございません。本商品は品切れとなっております。入荷をされましてはいかがでしょうか。")
+            
+            # 代替商品のカテゴリと評価
+            st.code(f"""
+            商品カテゴリ：{alternative_product['category']}\n
+            メーカー：{alternative_product['maker']}\n
+            評価：{alternative_product['score']}({alternative_product['review_number']}件)
+            """, language=None, wrap_lines=True)
+
+
+def find_alternative_product(out_of_stock_product):
+    """
+    在庫切れ商品の代替商品を検索する
+
+    Args:
+        out_of_stock_product: 在庫切れの商品辞書
+
+    Returns:
+        dict: 代替商品の辞書、見つからない場合はNone
+    """
+    import pandas as pd
+    import os
+    
+    # 商品データを読み込み
+    csv_path = "data/products.csv"
+    if not os.path.exists(csv_path):
+        return None
+        
+    df = pd.read_csv(csv_path)
+    
+    # 在庫切れ商品と同じカテゴリで在庫がある商品を検索
+    same_category = df[
+        (df['category'] == out_of_stock_product['category']) & 
+        (df['stock_status'] != 'なし') &
+        (df['id'] != int(out_of_stock_product['id']))
+    ]
+    
+    if len(same_category) > 0:
+        # 評価の高い順でソートして最初の商品を返す
+        best_alternative = same_category.nlargest(1, 'score').iloc[0]
+        return {
+            'id': str(best_alternative['id']),
+            'name': best_alternative['name'],
+            'category': best_alternative['category'],
+            'price': best_alternative['price'],
+            'maker': best_alternative['maker'],
+            'score': str(best_alternative['score']),
+            'review_number': str(best_alternative['review_number']),
+            'stock_status': best_alternative['stock_status']
+        }
+    
+    # 同じカテゴリがない場合、すべての在庫ありから最高評価の商品を返す
+    available_products = df[df['stock_status'] != 'なし']
+    if len(available_products) > 0:
+        best_alternative = available_products.nlargest(1, 'score').iloc[0]
+        return {
+            'id': str(best_alternative['id']),
+            'name': best_alternative['name'],
+            'category': best_alternative['category'],
+            'price': best_alternative['price'],
+            'maker': best_alternative['maker'],
+            'score': str(best_alternative['score']),
+            'review_number': str(best_alternative['review_number']),
+            'stock_status': best_alternative['stock_status']
+        }
+    
+    return None
