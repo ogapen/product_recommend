@@ -5,7 +5,10 @@
 ############################################################
 # ライブラリの読み込み
 ############################################################
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
 import logging
 import streamlit as st
 import utils
@@ -21,7 +24,8 @@ st.set_page_config(
     page_title=ct.APP_NAME
 )
 
-load_dotenv()
+if load_dotenv:
+    load_dotenv()
 
 logger = logging.getLogger(ct.LOGGER_NAME)
 
